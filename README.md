@@ -2,7 +2,7 @@
 
 面向 DeepSeek、阿里云、腾讯、字节跳动等公司的 Agent 开发和 LLM 应用岗位。以 DeepSeek Harness（DSH）为主线，沿一次模型请求追到工具执行、会话持久化、客户端同步，再把这些实现放进 Coding Agent、办公 Agent 和多租户平台的设计题中。公司名称对应备考方向，题目由本系列按源码与工程场景编写。
 
-源码基线是本地 `deepseek-harness/` 的 `4b399c39a6d1479cd84ca591b4d7c88e24d38a96`，对应 `dsh-v0.2.3-alpha.2`。入口见 [项目 README](deepseek-harness/README.zh.md)、[架构文档](deepseek-harness/docs/architecture.zh.md)和 [默认基础配置](deepseek-harness/packages/bundle/base/cordis.patch.yml)。目录包含 **38 篇待写文章**，按编号推进。篇号同时作为后续文章的引用编号。
+源码基线是本地 `deepseek-harness/` 的 `4b399c39a6d1479cd84ca591b4d7c88e24d38a96`，对应 `dsh-v0.2.3-alpha.2`。入口见 [项目 README](deepseek-harness/README.zh.md)、[架构文档](deepseek-harness/docs/architecture.zh.md)和 [默认基础配置](deepseek-harness/packages/bundle/base/cordis.patch.yml)。系列共规划 **38 篇**，按编号推进。篇号同时作为后续文章的引用编号。
 
 ## 技术栈与实现总览
 
@@ -26,7 +26,7 @@
 
 | 篇 | 文章 | 内容与面试切入点 |
 | --- | --- | --- |
-| 01 | **一条指令怎么跑完** | 从 `dsh --profile headless` 跟到 Agent 创建、消息入队、模型流、工具回填和持久化。画出 user、turn、step、attempt、tool call 的时序。追问：一次用户输入触发三次模型请求时，各层分别有几个实例？在哪个状态可以退出？[CLI](deepseek-harness/apps/cli/src/bin.ts) · [Agent 生命周期](deepseek-harness/docs/agent-lifecycle.zh.md) |
+| 01 | [**一条指令怎么跑完**](notes/01-headless-agent-run.md) | 从 `dsh --profile headless` 跟到 Agent 创建、消息入队、模型流、工具回填和持久化。画出 user、turn、step、attempt、tool call 的时序。追问：一次用户输入触发三次模型请求时，各层分别有几个实例？在哪个状态可以退出？[CLI](deepseek-harness/apps/cli/src/bin.ts) · [Agent 生命周期](deepseek-harness/docs/agent-lifecycle.zh.md) |
 | 02 | **Cordis、Profile、Bundle 与 YAML 覆盖** | 从 `apply`、注入、Effect/Disposer、Scope 和 Waterfall 到 Profile 合成、按 ID patch、配置 HMR。追问：Provider 热替换时，怎样定义旧调用、下一轮调用和资源释放的先后关系？[Cordis Primer](deepseek-harness/docs/cordis-primer.zh.md) · [Profile Boot](deepseek-harness/apps/cli/src/profile-boot.ts) |
 | 03 | **Agent Loop 与运行状态机** | 跟读创建、恢复、inbox、turn/step 边界、继续条件、取消与错误收尾。区分瞬时流事件、已提交消息与仅供审计的失败尝试。追问：模型已吐字、工具结果只完成一半时崩溃，重启如何判定后续动作？[Agent Loop](deepseek-harness/packages/core/agent-loop/src/) · [Agent 服务](deepseek-harness/packages/core/agent/src/) |
 | 04 | **LLM Provider、鉴权与 SSE 流式解析** | 从 DeepSeek Messages 请求翻译到 SSE 增量、推理内容、工具参数拼装、usage、prepared call、重试与多 Provider 路由。追问：用户已看到部分文本，此时 HTTP 流断开，重试对界面和历史分别意味着什么？[DeepSeek 适配器](deepseek-harness/packages/llm/llm-deepseek/src/) · [统一流接口](deepseek-harness/packages/llm/llm/src/) · [重试](deepseek-harness/packages/llm/llm-retry/) |
