@@ -70,52 +70,7 @@ Provider 真正消费的工具声明由 `projectToolUpdates()` 根据路由能�
 
 `assemble()` 捕获该 step 的系统段、工具与变量。每次 attempt 准备调用后会刷新运行时事实，复用已接纳的消息批次，再派生请求。中途 HMR 产生的提示词定义变化通常等下一次组装。压缩触发的系统头重建是专门处理的分支，重试时也使用该 step 已捕获的段。这样可以重建每次请求观察到的历史，同时减少运行时事件导致配置混搭的机会。[Step 接纳](../deepseek-harness/packages/core/agent-loop/src/agent.ts#L431) · [刷新契约](../deepseek-harness/packages/core/system-prompt/src/index.ts#L649) · [重试的系统写入](../deepseek-harness/packages/core/system-prompt/src/index.ts#L832)
 
-## 6. 实验：在快照里找出四类上下文证据
-
-在学习仓库根目录运行下面的 Python 3 脚本。它检查仓库已提交的四段会话记录，验证仓库指令的角色、目录事件与提示词的关系、工具出现和消失的轨迹，以及跨会话引用的捕获序号。`dynamic-tool-updates` 快照把工具声明归一化为名称列表，实验据此核对可见集合的变化。
-
-```bash
-python3 - <<'PY'
-import json
-from pathlib import Path
-
-root = Path('deepseek-harness/snapshots/session')
-
-def read(case):
-    return [json.loads(line) for line in (root / case / 'session.v4.jsonl').read_text(encoding='utf-8').splitlines()]
-
-def user_sources(records, kind):
-    return [row['data'] for row in records if row['type'] == 'user/message' and row['data']['source']['kind'] == kind]
-
-instructions = read('agent-instructions')
-records = user_sources(instructions, 'agent-instructions')
-assert any(change['path'] == 'AGENTS.md' for change in records[0]['source']['changes'])
-assert any(change['path'] == 'nested/AGENTS.md' for record in records[1:] for change in record['source']['changes'])
-assert any(row['type'] == 'system/message' and row['data']['message']['source'].get('reset') for row in instructions)
-
-directory = read('working-directory-admission')
-changes = [row['data']['cwd'] for row in directory if row['type'] == 'workspace-root/change']
-snapshots = user_sources(directory, 'runtime-context')
-assert directory[0]['cwd'] != changes[0]
-assert any(section['name'] == 'working-directory:current' and changes[0] in section['text']
-           for snapshot in snapshots for section in snapshot['source']['sections'])
-
-tools = read('dynamic-tool-updates')
-headers = [row['data']['header'] for row in tools if row['type'] == 'request/header']
-assert ['snapshot_ping' in header['tools'] for header in headers] == [False, True, False]
-updates = [block['type'] for row in tools if row['type'] == 'developer/message'
-           for block in row['data']['message']['content'] if block.get('toolName') == 'snapshot_ping']
-assert updates == ['tool-addition', 'tool-removal']
-
-reference = user_sources(read('session-reference-spill'), 'session-reference')[0]['source']['references'][0]
-assert reference['capturedThroughSeq'] >= 0 and reference['truncated']
-print('指令来源、工作目录快照、工具增删与会话引用捕获点均已核对')
-PY
-```
-
-仓库的 System Prompt、指令发现和工作目录测试还覆盖了作用域、预算与并发修改。本文实跑了上述记录检查。完整回放或实际请求可以对照相应测试入口验证。[快照测试入口](../deepseek-harness/snapshots/session/headless.snapshot.ts) · [提示词测试](../deepseek-harness/packages/core/system-prompt/tests/system-prompt.spec.ts) · [工作目录测试](../deepseek-harness/packages/session/working-directory/tests/working-directory.spec.ts)
-
-## 7. 面试官会怎么追问
+## 6. 面试官会怎么追问
 
 ### 你改了 `AGENTS.md`。怎么确认下一轮模型看到新版本？
 

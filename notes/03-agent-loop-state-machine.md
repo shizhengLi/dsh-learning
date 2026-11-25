@@ -94,59 +94,7 @@ Inbox 通过 `agent/inbox/spliced` 记录变更。`inboxProjectionDefinition.app
 
 前两个错误码回答的是 Harness 已持久化到哪个阶段。对于远程写操作，超时或崩溃还可能落在对方成功、响应尚未返回的窗口。面试中可把真正的恢复设计扩展为预先生成幂等键、按键查询外部结果，并用确认记录驱动下一步。DSH 的会话修复负责把未知状态表达清楚。[缺失结果生成](../deepseek-harness/packages/core/session/src/repair.ts#L151)
 
-## 6. 实验：在同一份会话上切出三个崩溃前缀
-
-在学习仓库根目录使用 Node 24 运行以下脚本。它从第 01 篇的 `fs-read` 样本取得 `turn/start`、`step/start`、assistant 工具请求及真实工具事件，构造一个最小逻辑前缀。测试补入连续序号和示例时间，然后直接调用源码的 `interruptedTurnClosers()`。它检查修复事件、错误码、调用来源以及重复修复的行为。[样本](../deepseek-harness/snapshots/session/fs-read/session.v4.jsonl)
-
-```bash
-node --experimental-transform-types --input-type=module <<'JS'
-import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-import { registerHooks } from 'node:module'
-
-const sources = new Map([
-  ['@deepseek-ai/dsh-brand', './deepseek-harness/packages/util/brand/src/index.ts'],
-  ['@deepseek-ai/dsh-util-values', './deepseek-harness/packages/util/values/src/index.ts'],
-])
-const hooks = registerHooks({
-  resolve(specifier, context, next) {
-    const source = sources.get(specifier)
-    return next(source ? new URL(source, import.meta.url).href : specifier, context)
-  },
-})
-
-try {
-  const { interruptedTurnClosers } = await import('./deepseek-harness/packages/core/session/src/repair.ts')
-  const path = 'deepseek-harness/snapshots/session/fs-read/session.v4.jsonl'
-  const records = readFileSync(path, 'utf8').trim().split('\n').map(line => JSON.parse(line))
-  const types = ['turn/start', 'step/start', 'assistant/message', 'tool/call', 'tool/result']
-  const events = types.map((type, seq) => {
-    const record = records.find(entry => entry.type === type)
-    assert.ok(record)
-    return { ...record, seq, time: 100 + seq }
-  })
-
-  for (const [length, errorCode] of [[3, 'TOOL_NOT_STARTED'], [4, 'TOOL_OUTCOME_UNKNOWN'], [5, undefined]]) {
-    const prefix = events.slice(0, length)
-    const closers = interruptedTurnClosers(prefix)
-    assert.deepEqual(closers.map(event => event.type), [
-      ...(errorCode ? ['tool/result'] : []), 'step/end', 'turn/end',
-    ])
-    assert.equal(closers[0].data.error?.code, errorCode)
-    if (length === 4) assert.deepEqual(closers[0].sourceEventSeqs, [prefix[3].seq])
-    assert.deepEqual(closers.at(-1).data.reason, { kind: 'interrupted' })
-    assert.deepEqual(interruptedTurnClosers([...prefix, ...closers]), [])
-    console.log(`${prefix.at(-1).type} -> ${errorCode ?? '保留已有结果'} -> interrupted`)
-  }
-} finally {
-  hooks.deregister()
-}
-JS
-```
-
-这个实验验证的是逻辑修复函数。完整持久化恢复与并发取消分别由仓库的 `resume.spec.ts` 和 `cancel.spec.ts` 覆盖。准备好工作区依赖后，可以从 `deepseek-harness/` 用 `pnpm exec vitest run packages/core/agent-loop/tests/resume.spec.ts packages/core/agent-loop/tests/cancel.spec.ts` 运行；本文实跑的是以上三个前缀实验。[恢复测试](../deepseek-harness/packages/core/agent-loop/tests/resume.spec.ts#L540) · [取消测试](../deepseek-harness/packages/core/agent-loop/tests/cancel.spec.ts#L508)
-
-## 7. 面试官会怎么追问
+## 6. 面试官会怎么追问
 
 ### Agent 显示 `idle` 时，可以立刻释放会话和工具吗？
 

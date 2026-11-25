@@ -97,63 +97,7 @@ HTTP 状态决定响应是否进入流式消费。非 2xx 响应按状态以及�
 
 一次可重试的适配器失败会先结算为 `assistant/attempt`。重试在同一个 step 内重新准备模型调用，已经接纳的用户消息保留，失败尝试的文字留给查看或回放该尝试的消费者。成功时另写本次尝试的 `assistant/message`。并存的多 Provider 使路由可选，`llm-retry` 在既定 step 中重试也仍受该 step 的模型选择约束。设计跨 Provider 故障切换时，还需要明确切换点、候选路由和历史能力降级规则。[失败尝试与重试](../deepseek-harness/packages/core/agent-loop/src/agent.ts#L531) · [路由选择约束](../deepseek-harness/packages/core/agent-loop/src/agent.ts#L601)
 
-## 5. 实验：同一串增量，在不同结尾下怎样结算
-
-在学习仓库根目录使用 Node 24 执行。脚本直接运行 `translate()`，喂给它一组已经完成 SSE 分帧的仿真事件。先验证工具 JSON 由两段拼成、累计 usage 保留最终值，再去掉 `message_stop`，最后把完整参数换成坏 JSON。实验为 `LlmError` 提供只保留 `code` 的测试替身，便于独立运行转换函数。真实错误类型、UTF-8 分帧和请求行为可以通过仓库测试验证。[上游流测试](../deepseek-harness/packages/llm/llm-deepseek/tests/stream.spec.ts)
-
-```bash
-node --input-type=module <<'JS'
-import assert from 'node:assert/strict'
-import { registerHooks } from 'node:module'
-
-const brand = new URL('./deepseek-harness/packages/util/brand/src/index.ts', import.meta.url)
-const errorModule = `data:text/javascript,${encodeURIComponent(`
-  export class LlmError extends Error {
-    constructor(message, code) {
-      super(message)
-      this.code = code
-    }
-  }
-`)}`
-const hooks = registerHooks({
-  resolve(specifier, context, next) {
-    if (specifier === '@deepseek-ai/dsh-brand') return next(brand.href, context)
-    if (specifier === '@deepseek-ai/dsh-llm') return next(errorModule, context)
-    return next(specifier, context)
-  },
-})
-
-try {
-  const { translate } = await import('./deepseek-harness/packages/llm/llm-deepseek/src/translate.ts')
-  const events = [
-    { type: 'message_start', message: { usage: { input_tokens: 12, output_tokens: 2, cache_read_input_tokens: 20 } } },
-    { type: 'content_block_start', index: 7, content_block: { type: 'tool_use', id: 'call_1', name: 'read', input: {} } },
-    { type: 'content_block_delta', index: 7, delta: { type: 'input_json_delta', partial_json: '{"file_path":' } },
-    { type: 'content_block_delta', index: 7, delta: { type: 'input_json_delta', partial_json: '"greeting.txt"}' } },
-    { type: 'content_block_stop', index: 7 },
-    { type: 'message_delta', delta: { stop_reason: 'tool_use' }, usage: { output_tokens: 5 } },
-    { type: 'message_stop' },
-  ]
-  const run = records => Array.fromAsync(translate((async function* () { yield* records })(), 'fixture-model'))
-  const chunks = await run(events)
-  const tool = chunks.find(chunk => chunk.type === 'block-end')
-  assert.equal(tool.index, 0)
-  assert.deepEqual(JSON.parse(tool.block.arguments), { file_path: 'greeting.txt' })
-  assert.deepEqual(chunks.at(-2).usage, { inputTokens: 12, outputTokens: 5, cacheReadTokens: 20, totalTokens: 37 })
-  assert.equal(chunks.at(-1).reason.kind, 'tool-calls')
-  await assert.rejects(run(events.slice(0, -1)), { code: 'STREAM_CLOSED' })
-  const broken = events.toSpliced(3, 1)
-  await assert.rejects(run(broken), { code: 'MALFORMED_RESPONSE' })
-  console.log('tool-calls / outputTokens=5 / STREAM_CLOSED / MALFORMED_RESPONSE')
-} finally {
-  hooks.deregister()
-}
-JS
-```
-
-已按开发指南安装依赖时，可从 `deepseek-harness/` 运行 `pnpm exec vitest run packages/llm/llm-deepseek/tests/stream.spec.ts packages/llm/llm-deepseek/tests/prepared-call.spec.ts`，覆盖 SSE 分帧、状态转换和端点配置切换。本文实跑的是上面不发网络请求的实验。[开发指南](../deepseek-harness/docs/development.zh.md) · [Prepared call 测试](../deepseek-harness/packages/llm/llm-deepseek/tests/prepared-call.spec.ts)
-
-## 6. 面试官会怎么追问
+## 5. 面试官会怎么追问
 
 ### 为什么不能在每次 `read()` 后直接 `JSON.parse()`？
 

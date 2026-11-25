@@ -94,53 +94,7 @@ Node 的输出账本按序保留内容。文本超限时截取能容纳的 Unico
 
 运行超时或被取消后，保留模式先请求协作停止，并等待确认。进程无法确认停止时，走终止和清理路径，保留变量可能丢失。程序完成、超时、工具副作用和日志持久化是四个可独立观察的状态。需要对 50 次操作报告部分成功时，可以让程序记录每个输入的结果，再用一份小摘要汇总成功、失败与待核实项。[终止与清理](../deepseek-harness/packages/ptc-runtime/ptc-runtime-node/src/worker.ts#L214) · [取消语义](../deepseek-harness/packages/ptc-runtime/ptc-runtime-node/README.zh.md)
 
-## 6. 实验：两层调用记录、额度与输出截断
-
-下方脚本读取两份仓库快照，并运行真实的 `OutputLedger`。`ptc-turn` 应有一个顶层 `run_code`，其下两个子调用，最后只有一个顶层结果。`ptc-tool-call-limit` 的首个程序在第三次尝试时终止，下一次程序重新获得额度。输出实验把总预算缩到 12 字节，验证多字节字符保留完整、超出部分标记截断。在学习仓库根目录用 Node 24 执行即可。[调用快照](../deepseek-harness/snapshots/session/ptc-turn/session.v4.jsonl) · [额度快照](../deepseek-harness/snapshots/session/ptc-tool-call-limit/session.v4.jsonl)
-
-```bash
-node --experimental-transform-types --input-type=module <<'JS'
-import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-import { OutputLedger } from './deepseek-harness/packages/ptc-runtime/ptc-runtime-node/src/output-ledger.ts'
-
-function read(caseName) {
-  const path = `deepseek-harness/snapshots/session/${caseName}/session.v4.jsonl`
-  return readFileSync(path, 'utf8').trim().split('\n').map(line => JSON.parse(line))
-}
-const events = read('ptc-turn')
-const topCalls = events.filter(event => event.type === 'tool/call')
-const topResults = events.filter(event => event.type === 'tool/result')
-const starts = events.filter(event => event.type === 'tool/ptc-dispatch-start')
-const children = events.filter(event => event.type === 'tool/ptc-dispatch')
-assert.deepEqual(topCalls.map(event => event.data.name), ['run_code'])
-assert.equal(topResults.length, 1)
-assert.equal(children.length, 2)
-assert.equal(topResults[0].data.message.source.callId, topCalls[0].data.callId)
-assert.ok(children.every(event => event.data.parentCallId === topCalls[0].data.callId))
-assert.deepEqual(starts.map(event => event.data.subCallId), children.map(event => event.data.subCallId))
-
-const limited = read('ptc-tool-call-limit')
-const limitedChildren = limited.filter(event => event.type === 'tool/ptc-dispatch-start')
-assert.equal(limitedChildren.filter(event => event.data.parentCallId === 'call_limit').length, 2)
-const [first, next] = limited.filter(event => event.type === 'tool/result')
-assert.equal(first.data.error.code, 'CODE_RUN_FAILED')
-assert.match(first.data.message.content[0].text, /call 3 was not dispatched/)
-assert.equal(next.data.message.isError, false)
-
-const ledger = new OutputLedger(12)
-const output = []
-assert.equal(ledger.admit({ type: 'text', text: 'a中🙂z' }, output), false)
-assert.deepEqual(ledger.success(output), {
-  output: [{ type: 'text', text: 'a中🙂' }], outputTruncated: true,
-})
-console.log('父子事件配对、单次调用额度、输出截断均已核对')
-JS
-```
-
-这个实验检查已记录的行为和输出账本。程序启动、RPC、真实工具和沙箱设置有各自的集成路径。准备好工作区依赖后，可从 `deepseek-harness/` 运行 `pnpm run test:snapshot -t 'replays ptc-turn through dsh --profile headless'`。本文实跑的是上述快照断言和账本实验。[Headless 回放入口](../deepseek-harness/snapshots/session/headless.snapshot.ts#L1375) · [PTC 执行器测试](../deepseek-harness/packages/core/tool-executor-ptc/tests/ptc.spec.ts)
-
-## 7. 面试官会怎么追问
+## 6. 面试官会怎么追问
 
 ### 50 个独立的读操作，PTC 一定少一次模型请求吗？
 

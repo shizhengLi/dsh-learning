@@ -74,72 +74,7 @@ Web 的工具节点按 `callId` 关联三种事件。assistant 的工具增量�
 
 实际仓库快照里能看见三条不同轨迹。`parallel-tool-calls` 连续记录读 A、读 B 的调用，再以 A、B 顺序记录结果。`hook-cc-pretool-deny` 的结果为 `HOOK_DENIED`，而 `hook-cc-posttool-block` 首次返回 `HOOK_BLOCKED`，后续 step 又有新的调用。快照能验证会话中的记录次序。要验证 B 的工具体确实先完成，需要控制执行时序的测试。[并行快照](../deepseek-harness/snapshots/session/parallel-tool-calls/session.v4.jsonl#L16) · [前置拒绝快照](../deepseek-harness/snapshots/session/hook-cc-pretool-deny/session.v4.jsonl#L16) · [后置阻断快照](../deepseek-harness/snapshots/session/hook-cc-posttool-block/session.v4.jsonl#L16)
 
-## 6. 实验：让第二个读先返回
-
-在学习仓库根目录用 Node 24 运行下列脚本。实验使用源码的 `executeToolBatch()`，通过一个内存流水线替身控制工具体与前后置处理。前两个读可并行，B 返回时释放仍在等候的 A。断言工具体以 B、A 顺序返回，最终结果仍按 A、B 排列，写入与最后一个读各在独占屏障的两侧。脚本没有文件写操作。[调度源码](../deepseek-harness/packages/core/tools/src/batch.ts#L50)
-
-```bash
-node --experimental-transform-types --input-type=module <<'JS'
-import assert from 'node:assert/strict'
-import { registerHooks } from 'node:module'
-
-const root = new URL('./deepseek-harness/packages/', import.meta.url)
-const llmExports = [
-  `export { HarnessError } from '${new URL('util/error/src/index.ts', root).href}'`,
-  `export { createToolResultMessage } from '${new URL('llm/llm/src/message.ts', root).href}'`,
-].join('\n')
-const sources = new Map([
-  ['@deepseek-ai/dsh-brand', new URL('util/brand/src/index.ts', root).href],
-  ['@deepseek-ai/dsh-error', new URL('util/error/src/index.ts', root).href],
-  ['@deepseek-ai/dsh-util-crypto', new URL('util/crypto/src/index.ts', root).href],
-  ['@deepseek-ai/dsh-util-values', new URL('util/values/src/index.ts', root).href],
-  ['@deepseek-ai/dsh-llm', `data:text/javascript,${encodeURIComponent(llmExports)}`],
-])
-const hooks = registerHooks({
-  resolve(specifier, context, next) {
-    return next(sources.get(specifier) ?? specifier, context)
-  },
-})
-
-try {
-  const { executeToolBatch } = await import(new URL('core/tools/src/batch.ts', root))
-  const aCanFinish = Promise.withResolvers()
-  const trace = []
-  const calls = [['A', 'read'], ['B', 'read'], ['W', 'write'], ['C', 'read']]
-    .map(([id, name]) => ({ id, name, type: 'tool-call', arguments: '{}' }))
-  const pipeline = {
-    executionMode: exec => ({ kind: exec.name === 'write' ? 'exclusive' : 'parallel' }),
-    async prepare(exec) {
-      trace.push(`pre:${exec.callId}`)
-      return { kind: 'dispatch', exec }
-    },
-    async dispatch(exec) {
-      if (exec.callId === 'A') await aCanFinish.promise
-      trace.push(`body:${exec.callId}`)
-      if (exec.callId === 'B') aCanFinish.resolve()
-      return { kind: 'post-result', result: { isError: false, value: exec.callId, content: [] } }
-    },
-    async complete(exec, outcome) {
-      trace.push(`post:${exec.callId}`)
-      return outcome.result
-    },
-  }
-  const result = await executeToolBatch({ calls, signal: new AbortController().signal }, pipeline, () => 2)
-  assert.deepEqual(result.results.map(item => item.callId), ['A', 'B', 'W', 'C'])
-  assert.deepEqual(trace, [
-    'pre:A', 'pre:B', 'body:B', 'body:A', 'post:A', 'post:B',
-    'pre:W', 'body:W', 'post:W', 'pre:C', 'body:C', 'post:C',
-  ])
-  console.log(trace.join(' → '))
-} finally {
-  hooks.deregister()
-}
-JS
-```
-
-实验运行了调度源码和可控替身。真正的 Cordis 审批、工具实现、会话写入和 UI 另有验证入口。安装工作区依赖后，可在 `deepseek-harness/` 运行 `pnpm exec vitest run packages/core/agent-loop/tests/tool-calls.spec.ts packages/core/tools/tests/tools.spec.ts` 检查批调用与流水线。[批调用测试](../deepseek-harness/packages/core/agent-loop/tests/tool-calls.spec.ts) · [流水线测试](../deepseek-harness/packages/core/tools/tests/tools.spec.ts)
-
-## 7. 面试官会怎么追问
+## 6. 面试官会怎么追问
 
 ### 模型调用的是现成函数，为什么还要做参数和输出校验？
 

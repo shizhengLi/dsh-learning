@@ -38,8 +38,8 @@
 
 | 篇 | 文章 | 内容与面试切入点 |
 | --- | --- | --- |
-| 08 | **Session Event Log、投影与回放** | 用 `SessionEvent`、序列号、`deriveMessages()` 和 Projection 解释事件溯源。拆解模型视图、UI 视图、审计历史和分叉前缀。追问：如何验证恢复前后模型输入一致？事件回放和重新执行工具是什么关系？[Session](deepseek-harness/packages/core/session/) · [Projection](deepseek-harness/packages/session/session-projection/) |
-| 09 | **默认 JSONL：写入、压缩、恢复与迁移** | 读写句柄、懒创建、Zstd 帧、写者租约、尾部恢复、格式版本链与独占发布。追问：进程写到半帧、磁盘写满和迁移未发布时，各自应从哪一份数据恢复？[JSONL 实现](deepseek-harness/packages/session/session-persistence-jsonl/src/) · [持久化契约](deepseek-harness/packages/session/session-persistence/src/) · [版本状态](deepseek-harness/docs/session-format-status.md) |
+| 08 | [**Session Event Log、投影与回放**](notes/08-session-event-log-projection-replay.md) | 用 `SessionEvent`、序列号、`deriveMessages()` 和 Projection 解释事件溯源。拆解模型视图、UI 视图、审计历史和分叉前缀。追问：如何验证恢复前后模型输入一致？事件回放和重新执行工具是什么关系？[Session](deepseek-harness/packages/core/session/) · [Projection](deepseek-harness/packages/session/session-projection/) |
+| 09 | [**默认 JSONL：写入、压缩、恢复与迁移**](notes/09-jsonl-session-persistence.md) | 读写句柄、懒创建、Zstd 帧、写者租约、尾部恢复、格式版本链与独占发布。追问：进程写到半帧、磁盘写满和迁移未发布时，各自应从哪一份数据恢复？[JSONL 实现](deepseek-harness/packages/session/session-persistence-jsonl/src/) · [持久化契约](deepseek-harness/packages/session/session-persistence/src/) · [版本状态](deepseek-harness/docs/session-format-status.md) |
 | 10 | **SQLite 会话库：WAL、事务与单写者** | 读 `node:sqlite` 的表与访问路径，讲 Thread、Segment、Frame、父前缀共享、group commit、JSONL 首次导入和 schema 迁移。追问：两个 Session 并发提交与同一个 Session 双写有何区别？提交结果未知时怎样安全重开？[SQLite 数据库实现](deepseek-harness/packages/session/session-persistence-sqlite/src/sqlite.ts) · [SQLite WAL](https://sqlite.org/wal.html) |
 | 11 | **业务存储：JSON、SQLite KV 与投影缓存** | 从 Storage Registry、命名空间、Domain Schema 到落盘、事务、Workspace 和 Projection Checkpoint。追问：业务记录写事务、投影缓存延迟刷盘和会话事件提交分别承诺什么？什么时候可以丢弃并重建缓存？[Storage](deepseek-harness/packages/storage/) · [Workspace](deepseek-harness/packages/workspace/workspace/) · [投影缓存](deepseek-harness/packages/session/session-projection-cache/) |
 | 12 | **会话全文检索：FTS5、实时与历史索引** | 搜索开关、惰性启动、内容提取、临时与持久索引、排序分页和重建；延伸到 BM25、中文检索、向量与混合召回。追问：索引比日志慢时如何定义读一致性？怎么证明搜索没吞掉最新消息？[Query](deepseek-harness/packages/session-query/session-query/src/) · [FTS5 实现](deepseek-harness/packages/session-query/session-query-sqlite/src/) |
@@ -110,4 +110,4 @@
 - **企业办公 Agent**：15 → 16 → 18 → 19 → 20 → 23 → 26 → 27 → 34。
 - **云平台和基础设施**：08 → 09 → 10 → 11 → 12 → 26 → 31 → 35 → 37。
 
-后续以 `notes/<篇号>-<主题>.md` 编号落稿，完成一篇便在本目录补上链接。源码篇以真实入口、配置和测试相互印证，给出调用图、关键类型、状态顺序、失败案例和最小阅读或验证步骤。涉及可选插件时，明确启用条件与生效的 Profile。系统设计篇给出题设、规模估算、API、数据模型、时序、故障恢复、容量取舍和验证指标。
+后续以 `notes/<篇号>-<主题>.md` 编号落稿，完成一篇便在本目录补上链接。源码篇聚焦实现原理、关键调用链、失败案例和面试追问，按需要在正文引用源码、配置或测试证据。涉及可选插件时，明确启用条件与生效的 Profile。系统设计篇给出题设、规模估算、API、数据模型、时序、故障恢复、容量取舍和验证指标。

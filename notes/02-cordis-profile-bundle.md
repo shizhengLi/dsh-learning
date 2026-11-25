@@ -92,46 +92,7 @@ DSH 的 `llm.prepareCall()` 在准备阶段获取 adapter 注册记录和解析�
 
 工具还有一层身份校验。`tools.resolve()` 为 step 形成一次准入集合，之后在拿可运行工具时再检查该定义和注册记录是否仍匹配。旧工具卸载并重新注册同名实现后，旧 step 的选择不会把新实现混进来。下一 step 再按当时视图解析工具。这能避免模型按上一代工具 Schema 产生的参数，意外直接跑到新一代实现。[工具准入](../deepseek-harness/packages/core/tools/src/index.ts#L257)
 
-## 6. 用真实补丁函数复核整块替换
-
-在学习仓库根目录用 Node 24 执行下面的命令。它把 YAML 解析后的补丁表示为对象，调用仓库里的 Include `applyPatches()`。短小的解析钩子把一个工作区依赖映射到 vendored 源码，从而直接运行该函数。实验依次复核 `config` 替换、只改 `disabled`、以及 `name` 作为断言三种行为。
-
-```bash
-node --experimental-transform-types --input-type=module <<'JS'
-import assert from 'node:assert/strict'
-import { registerHooks } from 'node:module'
-
-const cosmokit = new URL('./deepseek-harness/vendor/cosmokit/src/index.ts', import.meta.url)
-const hooks = registerHooks({
-  resolve(specifier, context, next) {
-    return next(specifier === '@deepseek-ai/cosmokit' ? cosmokit.href : specifier, context)
-  },
-})
-
-try {
-  const { applyPatches } = await import('./deepseek-harness/vendor/include/src/patch.ts')
-  const id = 'agent-loop'
-  const name = '@deepseek-ai/dsh-agent-loop'
-  const base = { insert: [{ id, name, config: { agents: [] } }] }
-  const limit = { id, config: { maxParallelToolCalls: 4 } }
-  const disabled = { id, disabled: true }
-  const warnings = []
-  const wrongName = { id, name: './another-provider.mjs', config: { maxParallelToolCalls: 9 } }
-  const { data } = applyPatches([], [base, limit, disabled, wrongName], warning => warnings.push(warning))
-
-  assert.deepEqual(data, [{ id, name, config: { maxParallelToolCalls: 4 }, disabled: true }])
-  assert.equal(warnings.length, 1)
-  assert.match(warnings[0], /name mismatch/)
-  console.log(JSON.stringify(data[0], null, 2))
-} finally {
-  hooks.deregister()
-}
-JS
-```
-
-如果已按项目开发指南准备好依赖，可以在 `deepseek-harness/` 用 `pnpm dsh --profile headless --dump-default-config` 检查官方组合，用 `pnpm dsh --profile headless --patch ./overlay.yml --dump-config` 检查自定义补丁。带上第 2 节的 YAML，目标条目的 `config` 应只包含并行度一项，`agents` 的默认值会在运行时校验时补齐。本文已运行的是上面的纯补丁实验，完整 Profile 启动与热更新有各自的测试入口。[配置导出测试](../deepseek-harness/packages/boot/app-boot/tests/config-dump.spec.ts) · [配置重载测试](../deepseek-harness/packages/boot/app-boot/tests/config-reload.spec.ts)
-
-## 7. 面试官会怎么追问
+## 6. 面试官会怎么追问
 
 ### 一条 Entry 写进 YAML 后，插件就可以调用了吗？
 

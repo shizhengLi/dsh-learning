@@ -95,40 +95,7 @@ sequenceDiagram
 
 检查点只能持久化 DSH 当时已经知道的事实。假设顶层调用去创建一张工单，外部服务已创建成功，DSH 却在写回结果前被杀死。重启看到的 `tool/call` 证明 Harness 已经接手调用。它同时涵盖工具体还没开始、工具正在跑，以及工具已完成但结果未持久化几种情况。恢复代码用 `TOOL_OUTCOME_UNKNOWN` 补齐结果，并关闭残留的 step 与 turn。要确认外部结果，需要按幂等键查询、对账或请用户核对，再决定是否重试。[恢复逻辑](../deepseek-harness/packages/core/session/src/repair.ts) · [持写句柄恢复](../deepseek-harness/packages/core/agent-loop/src/index.ts#L790)
 
-## 7. 用仓库快照复核
-
-在学习仓库根目录执行下面的命令，读取已提交的 `fs-read` 记录。脚本断言两个 step、两个成功模型响应、一个工具调用，且 `tool/call` 与 `tool/result` 的调用 ID 一致。该方法只需要 Python 3。
-
-```bash
-python3 - <<'PY'
-import json
-from collections import Counter
-from pathlib import Path
-
-path = Path('deepseek-harness/snapshots/session/fs-read/session.v4.jsonl')
-records = [json.loads(line) for line in path.read_text(encoding='utf-8').splitlines()]
-header, *events = records
-counts = Counter(event['type'] for event in events)
-assert header['version'] == 4
-assert counts['turn/start'] == counts['turn/end'] == 1
-assert counts['step/start'] == counts['step/end'] == counts['assistant/message'] == 2
-assert counts['assistant/attempt'] == 0
-assert counts['tool/call'] == counts['tool/result'] == 1
-call = next(event['data'] for event in events if event['type'] == 'tool/call')
-result = next(event['data'] for event in events if event['type'] == 'tool/result')
-assert call['name'] == 'read' and call['callId'] == result['message']['source']['callId']
-assert events[-1]['type'] == 'turn/end' and events[-1]['data']['reason']['kind'] == 'completed'
-
-for line, event in enumerate(events, start=2):
-    if event['type'].startswith(('turn/', 'step/', 'assistant/', 'tool/')):
-        data = event['data']
-        print(f"{line:>2} {event['type']:<18} turn={data.get('turn', '-')} step={data.get('step', '-')}")
-PY
-```
-
-若已经按项目开发指南准备好 Node、pnpm 和构建产物，可以从 `deepseek-harness/` 用 `pnpm run test:snapshot -t 'replays fs-read through dsh --profile headless'` 运行完整回放。该入口重放已录制的模型响应，验证实际启动的 headless 应用。本文实跑的是上面的快照解析和断言。[回放入口](../deepseek-harness/snapshots/session/headless.snapshot.ts#L1375) · [开发指南](../deepseek-harness/docs/development.zh.md)
-
-## 8. 面试官会怎么追问
+## 7. 面试官会怎么追问
 
 ### 一条输入触发三次模型请求，一共有几个 step？
 
