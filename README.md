@@ -73,15 +73,15 @@
 
 | 篇 | 文章 | 内容与面试切入点 |
 | --- | --- | --- |
-| 28 | **Web、Desktop、SDK、ACP 与断线重连** | Web Host/Client 插件树、Typert RPC、多路流、Session Follow、Electron 壳与 IPC、TS/Python SDK 的 JSON-RPC 和 ACP。追问：客户端离线十秒后如何恢复已提交历史与当前生成，如何避免重复显示同一个片段？[Web](deepseek-harness/apps/web/) · [Desktop](deepseek-harness/apps/desktop/) · [Session Controller](deepseek-harness/packages/api/session-controller/) · [SDK](deepseek-harness/packages/sdk/) · [ACP](deepseek-harness/packages/acp/) |
-| 29 | **可观测性、Token 成本与性能诊断** | 把 Session、turn、step、attempt、tool 串起来，区分首字延迟、排队、重试、工具耗时和端到端时延。用 token usage、长会话和重连基准制定容量验证。追问：P95 翻倍时如何区分 Provider 变慢、工具饱和、本地 IO 与 UI 渲染？[Session Telemetry](deepseek-harness/packages/session/session-telemetry-otel/) · [OTel](deepseek-harness/packages/telemetry/otel/) · [Benchmarks](deepseek-harness/benchmarks/) |
-| 30 | **Agent 评测：回放、任务成功率与发布回归** | 比较 Unit、契约、Snapshot、真实 API E2E，设计代码任务通过率、工具误调用、成本和人工介入等指标。练习配对任务、重复试验、环境归因与失败样本回归。追问：成功率升了 3 个点、成本涨了 40%，怎样判断收益是否真实且值得上线？[测试策略](deepseek-harness/docs/testing.zh.md) · [会话 Snapshot](deepseek-harness/snapshots/session/) |
+| 28 | [**Web、Desktop、SDK、ACP 与断线重连**](notes/28-web-desktop-sdk-acp-and-reconnect.md) | 从 Web Host/Client 和 Typert 多路流走到 Session Follow，再对照 Electron IPC、TS/Python SDK 与 ACP。追问：离线十秒后，怎样恢复已提交历史和正在生成的片段，并避免重复显示？[Web](deepseek-harness/apps/web/) · [Desktop](deepseek-harness/apps/desktop/) · [Session Controller](deepseek-harness/packages/api/session-controller/) · [SDK](deepseek-harness/packages/sdk/) · [ACP](deepseek-harness/packages/acp/) |
+| 29 | [**可观测性、Token 成本与性能诊断**](notes/29-observability-token-cost-and-performance.md) | 从 Session 事件追到 attempt、工具和 OTLP，区分上下文估算、用量与成本，再用长会话和重连基准定位性能瓶颈。追问：P95 翻倍时，怎样区分 Provider、工具、本地 I/O 和 UI？[Session Telemetry](deepseek-harness/packages/session/session-telemetry-otel/) · [OTel](deepseek-harness/packages/telemetry/otel/) · [Benchmarks](deepseek-harness/benchmarks/) |
+| 30 | [**Agent 评测：回放、任务成功率与发布回归**](notes/30-agent-evaluation-replay-and-release-regression.md) | 对照单元、契约、Snapshot 和真实 API E2E，设计任务级验收、配对比较、失败归因与发布回归。追问：成功率升了 3 个百分点、成本涨了 40%，怎样判断收益是否真实且值得上线？[测试策略](deepseek-harness/docs/testing.zh.md) · [会话 Snapshot](deepseek-harness/snapshots/session/) |
 
 ### 六、从 DSH 出发做系统设计（31–38）
 
 | 篇 | 文章 | 设计题、产出与压力条件 |
 | --- | --- | --- |
-| 31 | **用 Redis 和 PostgreSQL 设计云端 Agent 作业系统** | 给出 Run/Attempt/Step 状态机、PostgreSQL 持久记录与 Outbox，比较 Redis Pub/Sub、Streams 和有序集合的适用场景。讨论限流、缓存、ACK、重领、续租、fencing token、幂等和死信处理。压力条件为外部副作用已经发生，Worker 在确认前退出。验证如何安全恢复，以及 Redis 故障时怎样处理积压。[Redis Streams](https://redis.io/docs/latest/develop/data-types/streams/) |
+| 31 | [**用 Redis 和 PostgreSQL 设计云端 Agent 作业系统**](notes/31-cloud-agent-jobs-with-redis-and-postgresql.md) | 从 DSH 的本地运行边界推演 Run、Attempt、Step、Outbox 和 Redis 派发，覆盖 ACK、重领、续租、fencing、幂等和死信。追问：外部动作已生效但 Worker 崩溃，怎样恢复？Redis 故障时又怎样消化积压？[Redis Streams](https://redis.io/docs/latest/develop/data-types/streams/) |
 | 32 | **从零设计一个最小 DSH** | 设计 Agent Loop、Model Adapter、Tool Registry、Session Store、Policy 与 Transport 的接口及事件顺序。产出一个最小会话时序和演进路线，从单进程 CLI 扩到多入口。压力条件：模型中途取消和未知工具结果都要能恢复与解释。 |
 | 33 | **设计一个云端 Coding Agent** | 从接收仓库、理解 issue、编辑、执行测试到提交供评审的变更。设计隔离 workspace、Git worktree、搜索与 LSP、测试证据、Human-in-the-loop 和配额。压力条件：大仓库、多任务并发、依赖安装失败、用户同时修改同一文件。 |
 | 34 | **设计一个企业办公助理，WorkBuddy 类场景** | 用「读群消息 → 找文档 → 生成报告 → 经确认发出」贯穿账户连接、企业 ACL、草稿、审批、交付物、消息通知和定时任务。压力条件：成员离职、权限撤回、生成后接收人变更，仍要验证当前授权与动作参数。 |
