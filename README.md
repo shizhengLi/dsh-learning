@@ -82,8 +82,8 @@
 | 篇 | 文章 | 设计题、产出与压力条件 |
 | --- | --- | --- |
 | 31 | [**用 Redis 和 PostgreSQL 设计云端 Agent 作业系统**](notes/31-cloud-agent-jobs-with-redis-and-postgresql.md) | 从 DSH 的本地运行边界推演 Run、Attempt、Step、Outbox 和 Redis 派发，覆盖 ACK、重领、续租、fencing、幂等和死信。追问：外部动作已生效但 Worker 崩溃，怎样恢复？Redis 故障时又怎样消化积压？[Redis Streams](https://redis.io/docs/latest/develop/data-types/streams/) |
-| 32 | **从零设计一个最小 DSH** | 设计 Agent Loop、Model Adapter、Tool Registry、Session Store、Policy 与 Transport 的接口及事件顺序。产出一个最小会话时序和演进路线，从单进程 CLI 扩到多入口。压力条件：模型中途取消和未知工具结果都要能恢复与解释。 |
-| 33 | **设计一个云端 Coding Agent** | 从接收仓库、理解 issue、编辑、执行测试到提交供评审的变更。设计隔离 workspace、Git worktree、搜索与 LSP、测试证据、Human-in-the-loop 和配额。压力条件：大仓库、多任务并发、依赖安装失败、用户同时修改同一文件。 |
+| 32 | [**从零设计一个最小 DSH**](notes/32-design-a-minimal-dsh.md) | 设计 Agent Loop、Model Adapter、Tool Registry、Session Store、Policy 与 Transport 的接口及事件顺序。产出一个最小会话时序和演进路线，从单进程 CLI 扩到多入口。压力条件：模型中途取消和未知工具结果都要能恢复与解释。 |
+| 33 | [**设计一个云端 Coding Agent**](notes/33-design-a-cloud-coding-agent.md) | 从接收仓库、理解 issue、编辑、执行测试到提交供评审的变更。设计隔离 workspace、Git worktree、搜索与 LSP、测试证据、Human-in-the-loop 和配额。压力条件：大仓库、多任务并发、依赖安装失败、用户同时修改同一文件。 |
 | 34 | **设计一个企业办公助理，WorkBuddy 类场景** | 用「读群消息 → 找文档 → 生成报告 → 经确认发出」贯穿账户连接、企业 ACL、草稿、审批、交付物、消息通知和定时任务。压力条件：成员离职、权限撤回、生成后接收人变更，仍要验证当前授权与动作参数。 |
 | 35 | **设计多租户 Skill／MCP 平台** | 以 1 万技能、100 个 MCP 服务为题设，画出发布面与执行面，设计版本快照、召回、租户隔离、按需连接、授权、灰度、审计和质量回归。压力条件：插件吊销或升级时，已有工作如何收尾、后续请求何时切换？ |
 | 36 | **设计会话与企业知识检索** | 定义 Session 事件、派生索引、对象存储、全文与向量检索的职责，设计增量消费、ACL 过滤、删除传播、重建与召回评估。压力条件：历史索引落后，权限和删除更新仍要按预期生效。 |
